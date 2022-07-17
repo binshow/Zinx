@@ -11,6 +11,7 @@ type Message struct {
 	Id      uint32 //消息的ID
 	DataLen uint32 //消息的长度
 	Data    []byte //消息的内容
+
 }
 
 //创建一个Message消息包
