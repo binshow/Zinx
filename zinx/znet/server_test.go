@@ -95,7 +95,7 @@ func (this *PingRouter) PostHandle(request ziface.IRequest) {
 func TestServer_AddRouter(t *testing.T) {
 	//创建一个server句柄
 	s := NewServer("[zinx V0.3]")
-	s.AddRouter(&PingRouter{})
+	s.AddRouter(1 , &PingRouter{})
 
 	//客户端测试
 	go ClientTest()

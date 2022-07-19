@@ -7,3 +7,4 @@ go实现tcp服务器框架:https://www.yuque.com/aceld/npyr8s/bgftov
 4. 封装request
 5. 全局配置文件的加载
 6. 消息封装，解决TCP的粘包问题
+7. 多路由模式：消息管理

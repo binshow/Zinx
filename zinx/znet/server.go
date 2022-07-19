@@ -24,7 +24,8 @@ type Server struct {
 	Port        int		// 端口号
 
 	//当前Server由用户绑定的回调router,也就是Server注册的链接对应的处理业务
-	Router 		ziface.IRouter
+	//Router 		ziface.IRouter
+	MsgHandle  		ziface.IMsgHandle
 }
 
 func NewServer(name string) ziface.IServer {
@@ -36,7 +37,7 @@ func NewServer(name string) ziface.IServer {
 		IPVersion:"tcp4",
 		IP:utils.GlobalObject.Host,//从全局参数获取
 		Port:utils.GlobalObject.TcpPort,//从全局参数获取
-		Router: nil,
+		MsgHandle: NewMsgHandle(),
 	}
 	return s
 }
@@ -84,27 +85,7 @@ func (s *Server) Start() {
 
 			//3.3 TODO Server.Start() 处理该新连接请求的 业务 方法， 此时应该有 handler 和 conn是绑定的
 
-
-			////4. 简单的模拟下服务端的业务处理 , 直接数据回显
-			//go func() {
-			//	////不断的循环从客户端获取数据
-			//	for true {
-			//		buf := make([]byte , 512)
-			//		cnt, err := conn.Read(buf) // cnt 是读取的字节数
-			//		if err != nil {
-			//			fmt.Println("recv buf err ", err)
-			//			continue
-			//		}
-			//		//回显
-			//		if _, err := conn.Write(buf[:cnt]); err !=nil {
-			//			fmt.Println("write back buf err ", err)
-			//			continue
-			//		}
-			//	}
-			//}()
-			// 使用自定义的 connection 来 进行处理
-			// 拿到当前的链接模块
-			dealConn := NewConnection(conn, cid, false, s.Router)
+			dealConn := NewConnection(conn, cid, false, s.MsgHandle)
 			cid++
 			go dealConn.Start()	// 启动当前的链接任务
 		}
@@ -141,8 +122,7 @@ func (s *Server) Server() {
 
 
 //路由功能：给当前服务注册一个路由业务方法，供客户端链接处理使用
-func (s *Server)AddRouter(router ziface.IRouter) {
-	s.Router = router
-
+func (s *Server)AddRouter(msgId uint32 , router ziface.IRouter) {
+	s.MsgHandle.AddRouter(msgId , router)
 	fmt.Println("Add Router succ! " )
 }
