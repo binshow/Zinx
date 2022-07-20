@@ -23,13 +23,12 @@ type Connection struct {
 
 	isClosed bool  // 当前链接状态
 
-	//handleAPI ziface.HandleFunc	 // 当前链接所绑定的处理业务方法 API(一个连接绑定一个)
-
 	//该连接的处理方法router ， 等价于上面的 handleAPI
 	Router  ziface.IRouter
 
-
 	ExitBuffChan chan bool // 告知当前链接已经退出or停止
+
+	msgChan  chan []byte // 1. 无缓冲管道，用于读、写两个goroutine之间的消息通信
 
 }
 
@@ -40,20 +39,6 @@ func (c *Connection) startReader()  {
 	defer c.Stop()
 
 	for true {
-		//// 读取客户端的数据到buf中，最大 512 字节
-		//buf := make([]byte , 512)
-		//_, err := c.Conn.Read(buf)
-		//if err != nil {
-		//	fmt.Println("recv buf err " , err)
-		//	c.ExitBuffChan <- true
-		//	continue
-		//}
-
-		//// 调用当前链接所绑定的HandlerAPI
-		//if err := c.handleAPI(c.Conn , buf , cnt) ; err != nil {
-		//	fmt.Println("connID = " , c.ConnID , "handler is err" , err)
-		//	break
-		//}
 
 		// 创建拆包解包的对象
 		dp := NewDataPack()
@@ -105,12 +90,32 @@ func (c *Connection) startReader()  {
 	}
 }
 
+// 2. 连接的写业务方法，将数据发送给客户端
+func (c *Connection) startWriter() {
+	fmt.Println("[Writer Goroutine is running]")
+	defer fmt.Println(c.RemoteAddr().String(), "[conn Writer exit!]")
+
+	for  {
+
+		select {
+		case data := <-c.msgChan: // 有数据要写给客户端
+			if _, err := c.Conn.Write(data); err != nil {
+				fmt.Println("Send Data error:, ", err, " Conn Writer exit")
+				return
+			}
+		case <-c.ExitBuffChan:	// 连接已经关闭了
+			return
+		}
+	}
+}
+
 func (c *Connection) Start() {
 	fmt.Println("Conn start() , connID = " , c.ConnID)
 	// 启动从当前链接的读数据的业务
 	// todo 启动从当前链接写数据的业务
 
 	go c.startReader()
+	go c.startWriter() // 4. 启动
 
 	for {
 		select {
@@ -166,12 +171,8 @@ func (c *Connection) SendMsg(msgId uint32, data []byte) error {
 		return  errors.New("Pack error msg ")
 	}
 
-	//写回客户端
-	if _, err := c.Conn.Write(msg); err != nil {
-		fmt.Println("Write msg id ", msgId, " error ")
-		c.ExitBuffChan <- true
-		return errors.New("conn Write error")
-	}
+	//3. 写回客户端
+	c.msgChan <- msg   //将之前直接回写给conn.Write的方法 改为 发送给Channel 供Writer读取
 
 	return nil
 }
@@ -185,6 +186,7 @@ func NewConnection(conn *net.TCPConn, connID uint32, isClosed bool, router zifac
 		isClosed:     false,
 		Router:       router,
 		ExitBuffChan: make(chan bool),
+		msgChan:make(chan []byte), //msgChan初始化
 	}
 
 }
